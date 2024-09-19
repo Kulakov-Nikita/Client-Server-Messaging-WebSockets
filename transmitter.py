@@ -1,13 +1,16 @@
 import numpy as np
 import json
+import socket
+import struct
 
 from uav import UAV
 
 
 class Transmitter:
-    def __init__(self, device_id: int, device_type: int) -> None:
+    def __init__(self, device_id: int, device_type: int, socket: socket.socket) -> None:
         self.device_id: int = device_id
         self.device_type: int = device_type
+        self.socket = socket
 
     def get_gps_time(self) -> np.int64:
         return np.random.randint(0, 9223372036854775807, size=None, dtype=np.int64)
@@ -80,7 +83,12 @@ class Transmitter:
         frame = self.get_header(packet_type=20)
         frame.update({
             "deviceType": self.device_type,	# тип устройства
-	        "deviceErrorStatus": error_status, # критичность ошибки
-	        "deviceErrorComment": error_comment, # комментарий к ошибке
         })
         return str(json.dumps(frame))
+    
+    def send(self, message: str):
+        body = message.encode('utf-8')
+        length = struct.pack('>H', len(body))
+        checksum = sum(body) % 256
+        
+        self.socket.sendall(body + length + checksum)
