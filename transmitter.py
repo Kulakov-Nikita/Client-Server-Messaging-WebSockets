@@ -54,13 +54,6 @@ class Transmitter:
 	        "deviceStatus": int(np.random.choice([1,2,3])), # статус устройства 
 	        "supressMode": int(np.random.randint(100)), # режим работы устройства обнаружения и идентификации [усл.ед.]
         }
-        
-    def get_error_info(self) -> dict:
-        return {
-            "deviceType": self.device_type,	# тип устройства
-	        "deviceErrorStatus": int(np.random.choice([1, 2, 3, 4])), # критичность ошибки
-	        "deviceErrorComment": "", # комментарий к ошибке
-        }
 
     def get_uav_detection_data_frame(self, uav: UAV) -> str:
         frame = self.get_header(packet_type=1)
@@ -83,7 +76,11 @@ class Transmitter:
         frame.update(self.get_device_params())
         return str(json.dumps(frame))
     
-    def get_error_message(self) -> str:
+    def get_error_message(self, error_status: int, error_comment: str) -> str:
         frame = self.get_header(packet_type=20)
-        frame.update(self.get_error_info())
+        frame.update({
+            "deviceType": self.device_type,	# тип устройства
+	        "deviceErrorStatus": error_status, # критичность ошибки
+	        "deviceErrorComment": error_comment, # комментарий к ошибке
+        })
         return str(json.dumps(frame))
