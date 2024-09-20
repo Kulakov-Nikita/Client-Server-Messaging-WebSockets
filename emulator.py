@@ -1,6 +1,7 @@
 from transmitter import Transmitter
 import json
 import socket
+import struct
 
 
 class Emulator:
@@ -12,21 +13,28 @@ class Emulator:
         
         if message_packet_type == 3:
             self.transmitter.send(self.transmitter.get_device_params_data_frame())
+        elif message_packet_type == 2:
+            print(message)
         else:
             self.transmitter.send(self.transmitter.get_error_message(error_status=1, error_comment=f"packageType = {message_packet_type} isn't supported by this device"))
         
     
 
 if __name__ == '__main__':
-    try:
-        client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        client_socket.connect(('127.0.0.1', 6000))
-    except Exception as e:
-        print(e)
+    while True:
+        try:
+            client_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            client_socket.connect(('127.0.0.1', 6000))
+            break
+        except:
+            pass
 
-try:
-    t1 = Transmitter(1,1)
-    em = Emulator(1)
-    print(em.answer(t1.get_parameter_querry()))
-except Exception as e:
-    print(e)
+        
+    em = Emulator(1, client_socket)
+
+    while True:
+        length = client_socket.recv(2)
+        length = struct.unpack('>H', length)[0]
+        message = client_socket.recv(length - 3)
+        checksum = client_socket.recv(1)
+        em.answer(message)

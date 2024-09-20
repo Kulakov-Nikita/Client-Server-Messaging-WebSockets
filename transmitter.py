@@ -86,9 +86,20 @@ class Transmitter:
         })
         return str(json.dumps(frame))
     
-    def send(self, message: str):
+    def send(self, message: str) -> None:
         body = message.encode('utf-8')
-        length = struct.pack('>H', len(body))
-        checksum = sum(body) % 256
+        length = struct.pack('>H', len(body) + 3)
+        checksum = struct.pack('B', sum(body) % 256)
         
-        self.socket.sendall(body + length + checksum)
+        self.socket.sendall(length + body + checksum)
+
+    def recv(self) -> dict:
+        length = self.socket.recv(2)
+        length = struct.unpack('>H', length)[0]
+        message = self.socket.recv(length - 3)
+        checksum = self.socket.recv(1)
+
+        if checksum == sum(message) % 256:
+            return json.loads(message)
+        else:
+            self.send(self.get_error_message(error_status=1, error_comment="Checksum verification failed"))
