@@ -61,26 +61,50 @@ class Transmitter:
         frame.update({"uav": uav.get_info()})
         return str(json.dumps(frame))
     
-    def get_device_params_command(self) -> str:
+    def send_device_params_command(self) -> None:
         frame = self.get_header(packet_type=2)
         frame.update({"supressMode": int(np.random.randint(100))})
         frame.update(self.get_device_params())
-        return str(json.dumps(frame))
+        self.send(str(json.dumps(frame)))
 
-    def get_parameter_querry(self) -> str:
-        return str(json.dumps(self.get_header(packet_type=3)))
+    def send_parameter_querry(self) -> None:
+        self.send(str(json.dumps(self.get_header(packet_type=3))))
     
-    def get_device_params_data_frame(self) -> str:
+    def send_device_params_data_frame(self) -> None:
         frame = self.get_header(packet_type=4)
         frame.update(self.get_device_mode())
         frame.update(self.get_device_params())
-        return str(json.dumps(frame))
+        self.send(str(json.dumps(frame)))
     
-    def get_error_message(self, error_status: int, error_comment: str) -> str:
+    def send_error_message(self, error_status: int, error_comment: str) -> None:
         frame = self.get_header(packet_type=20)
         frame.update({
             "deviceType": self.device_type,	# тип устройства
 	        "deviceErrorStatus": error_status, # критичность ошибки
 	        "deviceErrorComment": error_comment, # комментарий к ошибке
         })
-        return str(json.dumps(frame))
+        frame.update({
+            "deviceErrorStatus": error_status,
+            "deviceErrorComment": error_comment
+        })
+        self.send(str(json.dumps(frame)))
+    
+    def send(self, message: str) -> None:
+        body = message.encode('utf-8')
+        length = struct.pack('>H', len(body) + 3)
+        checksum = struct.pack('B', sum(body) % 256)
+        
+        self.socket.sendall(length + body + checksum)
+
+    def recv(self) -> dict:
+        length = None
+        while not length:
+            length = self.socket.recv(2)
+            
+        length = struct.unpack('>H', length)[0]
+        message = self.socket.recv(length - 3)
+        checksum = self.socket.recv(1)
+        if checksum == struct.pack('B', sum(message) % 256):
+            return json.loads(message)
+        else:
+            self.send_error_message(error_status=1, error_comment="Checksum verification failed")
